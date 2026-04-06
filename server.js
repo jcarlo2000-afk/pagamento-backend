@@ -34,8 +34,10 @@ app.post("/criar-pagamento", async (req, res) => {
       },
       {
         headers: {
-          Authorization: `Bearer ${mp_access_token || ACCESS_TOKEN}`,
-          "Content-Type": "application/json"
+  Authorization: `Bearer ${mp_access_token || ACCESS_TOKEN}`,
+  "Content-Type": "application/json",
+  "X-Idempotency-Key": Date.now().toString()
+}
         }
       }
     );
