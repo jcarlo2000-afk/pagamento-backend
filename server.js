@@ -10,6 +10,7 @@ const ACCESS_TOKEN = "SEU_TOKEN_MP";
 
 // 🔥 CRIAR PAGAMENTO
 app.post("/criar-pagamento", async (req, res) => {
+console.log("BODY:", req.body); // 👈 COLOCA AQUI
 const { valor, plano, pixel_id, pixel_token, mp_access_token } = req.body;
   try {
     const response = await axios.post(
