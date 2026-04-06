@@ -1,3 +1,5 @@
+console.log("🔥 NOVA VERSÃO DO BACKEND RODANDO");
+
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
@@ -22,7 +24,7 @@ app.post("/criar-pagamento", async (req, res) => {
       headers: {
         Authorization: `Bearer ${mp_access_token || ACCESS_TOKEN}`,
         "Content-Type": "application/json",
-        "X-Idempotency-Key": Date.now().toString()
+        ""X-Idempotency-Key": Math.random().toString(36).substring(2)
       },
       data: {
         transaction_amount: Number(valor),
