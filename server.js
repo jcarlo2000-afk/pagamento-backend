@@ -17,38 +17,41 @@ app.post("/criar-pagamento", async (req, res) => {
 
   try {
     const response = await axios.post(
-      "https://api.mercadopago.com/checkout/preferences",
+      "https://api.mercadopago.com/v1/payments",
       {
-        items: [
-          {
-            title: plano,
-            quantity: 1,
-            unit_price: Number(valor),
-          },
-        ],
-        metadata: {
-          plano: plano,
-          pixel_id: pixel_id,
-          pixel_token: pixel_token,
-          mp_access_token: mp_access_token,
+        transaction_amount: Number(valor),
+        description: plano,
+        payment_method_id: "pix",
+        payer: {
+          email: "cliente@email.com"
         },
+        metadata: {
+          plano,
+          pixel_id,
+          pixel_token,
+          mp_access_token
+        }
       },
       {
         headers: {
           Authorization: `Bearer ${mp_access_token || ACCESS_TOKEN}`,
-        },
+          "Content-Type": "application/json"
+        }
       }
     );
 
+    const pix = response.data.point_of_interaction.transaction_data;
+
     res.json({
-      link: response.data.init_point,
+      pix_code: pix.qr_code,
+      qr_code: pix.qr_code_base64
     });
+
   } catch (error) {
-    console.log("ERRO MP:", error.response?.data || error.message);
-    res.status(500).json({ error: "Erro ao criar pagamento" });
+    console.log("ERRO PIX:", error.response?.data || error.message);
+    res.status(500).json({ error: "Erro ao gerar PIX" });
   }
 });
-
 // 🔥 WEBHOOK
 app.post("/webhook", async (req, res) => {
   const data = req.body;
