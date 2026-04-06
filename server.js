@@ -6,24 +6,30 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// 🔥 COLOCA SEU TOKEN REAL AQUI (IMPORTANTE)
+// 🔥 TOKEN PADRÃO (fallback)
 const ACCESS_TOKEN = "APP_USR-72378658-cb9e-481a-bba1-940d95b54d1e";
 
-// 🔥 CRIAR PAGAMENTO
+// 🔥 CRIAR PAGAMENTO PIX
 app.post("/criar-pagamento", async (req, res) => {
   console.log("BODY:", req.body);
 
-  const { valor, plano, pixel_id, pixel_token, mp_access_token } = req.body;
+  const { valor, plano, pixel_id, pixel_token, mp_access_token, email } = req.body;
 
   try {
-    const response = await axios.post(
-      "https://api.mercadopago.com/v1/payments",
-      {
+    const response = await axios({
+      method: "post",
+      url: "https://api.mercadopago.com/v1/payments",
+      headers: {
+        Authorization: `Bearer ${mp_access_token || ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+        "X-Idempotency-Key": Date.now().toString()
+      },
+      data: {
         transaction_amount: Number(valor),
         description: plano,
         payment_method_id: "pix",
         payer: {
-          email: "cliente@email.com"
+          email: email || "teste@teste.com" // 🔥 importante
         },
         metadata: {
           plano,
@@ -31,16 +37,8 @@ app.post("/criar-pagamento", async (req, res) => {
           pixel_token,
           mp_access_token
         }
-      },
-      {
-        headers: {
-  Authorization: `Bearer ${mp_access_token || ACCESS_TOKEN}`,
-  "Content-Type": "application/json",
-  "X-Idempotency-Key": Date.now().toString()
-}
-        }
       }
-    );
+    });
 
     const pix = response.data.point_of_interaction.transaction_data;
 
@@ -54,6 +52,7 @@ app.post("/criar-pagamento", async (req, res) => {
     res.status(500).json({ error: "Erro ao gerar PIX" });
   }
 });
+
 // 🔥 WEBHOOK
 app.post("/webhook", async (req, res) => {
   const data = req.body;
@@ -65,7 +64,6 @@ app.post("/webhook", async (req, res) => {
       let payment;
 
       try {
-        // usa token padrão primeiro
         const response = await axios.get(
           `https://api.mercadopago.com/v1/payments/${paymentId}`,
           {
@@ -84,7 +82,6 @@ app.post("/webhook", async (req, res) => {
       if (payment.status === "approved") {
         console.log("PAGAMENTO APROVADO");
 
-        // 🔥 PEGA DADOS DINÂMICOS
         const pixel_id = payment.metadata?.pixel_id;
         const pixel_token = payment.metadata?.pixel_token;
 
