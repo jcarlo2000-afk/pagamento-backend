@@ -6,12 +6,15 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-const ACCESS_TOKEN = "SEU_TOKEN_MP";
+// 🔥 COLOCA SEU TOKEN REAL AQUI (IMPORTANTE)
+const ACCESS_TOKEN = "APP_USR-72378658-cb9e-481a-bba1-940d95b54d1e";
 
 // 🔥 CRIAR PAGAMENTO
 app.post("/criar-pagamento", async (req, res) => {
-console.log("BODY:", req.body); // 👈 COLOCA AQUI
-const { valor, plano, pixel_id, pixel_token, mp_access_token } = req.body;
+  console.log("BODY:", req.body);
+
+  const { valor, plano, pixel_id, pixel_token, mp_access_token } = req.body;
+
   try {
     const response = await axios.post(
       "https://api.mercadopago.com/checkout/preferences",
@@ -27,7 +30,7 @@ const { valor, plano, pixel_id, pixel_token, mp_access_token } = req.body;
           plano: plano,
           pixel_id: pixel_id,
           pixel_token: pixel_token,
-          mp_access_token: mp_access_token
+          mp_access_token: mp_access_token,
         },
       },
       {
@@ -57,13 +60,12 @@ app.post("/webhook", async (req, res) => {
       let payment;
 
       try {
+        // usa token padrão primeiro
         const response = await axios.get(
           `https://api.mercadopago.com/v1/payments/${paymentId}`,
           {
             headers: {
-              const mp_token = payment.metadata?.mp_access_token || ACCESS_TOKEN;
-
-Authorization: `Bearer ${mp_token}`,
+              Authorization: `Bearer ${ACCESS_TOKEN}`,
             },
           }
         );
@@ -77,7 +79,7 @@ Authorization: `Bearer ${mp_token}`,
       if (payment.status === "approved") {
         console.log("PAGAMENTO APROVADO");
 
-        // 🔥 PEGA PIXEL DINÂMICO
+        // 🔥 PEGA DADOS DINÂMICOS
         const pixel_id = payment.metadata?.pixel_id;
         const pixel_token = payment.metadata?.pixel_token;
 
@@ -117,7 +119,7 @@ Authorization: `Bearer ${mp_token}`,
   }
 });
 
-// 🔥 FINAL
+// 🔥 START
 app.listen(3000, () => {
   console.log("Servidor rodando");
 });
