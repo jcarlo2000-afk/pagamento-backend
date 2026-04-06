@@ -10,8 +10,7 @@ const ACCESS_TOKEN = "SEU_TOKEN_MP";
 
 // 🔥 CRIAR PAGAMENTO
 app.post("/criar-pagamento", async (req, res) => {
-  const { valor, plano, pixel_id, pixel_token } = req.body;
-
+const { valor, plano, pixel_id, pixel_token, mp_access_token } = req.body;
   try {
     const response = await axios.post(
       "https://api.mercadopago.com/checkout/preferences",
@@ -27,11 +26,12 @@ app.post("/criar-pagamento", async (req, res) => {
           plano: plano,
           pixel_id: pixel_id,
           pixel_token: pixel_token,
+          mp_access_token: mp_access_token
         },
       },
       {
         headers: {
-          Authorization: `Bearer ${ACCESS_TOKEN}`,
+          Authorization: `Bearer ${mp_access_token || ACCESS_TOKEN}`,
         },
       }
     );
@@ -60,7 +60,9 @@ app.post("/webhook", async (req, res) => {
           `https://api.mercadopago.com/v1/payments/${paymentId}`,
           {
             headers: {
-              Authorization: `Bearer ${ACCESS_TOKEN}`,
+              const mp_token = payment.metadata?.mp_access_token || ACCESS_TOKEN;
+
+Authorization: `Bearer ${mp_token}`,
             },
           }
         );
