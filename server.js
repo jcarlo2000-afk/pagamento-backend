@@ -77,7 +77,7 @@ app.post("/webhook", async (req, res) => {
 
         // 🔥 ENVIA EVENTO PRO FACEBOOK
         await axios.post(
-          `https://graph.facebook.com/v17.0/SEU_PIXEL_ID/events?access_token=SEU_TOKEN_PIXEL`,
+          `"https://graph.facebook.com/v17.0/910189738059566/events?access_token=EAA8KT4WRIZCIBRGqgjIZAj7RQkJ1votMCbRFsdQggjBH7GuKRLKJMeHmUZCfdSII5CPSIxabEZAX0VZARLdzzcgEqsOV38zlwtsp8Tp6QZCaRxoNkMl5GVWWiAbEgbGpqqPysdtH4ZA8yocG9ZBGztxWrqrsXJwlE67q8DCLAZANJpMPZCaBW3CQHsCVCCaisgZAQZDZD"`,
           {
             data: [
               {
