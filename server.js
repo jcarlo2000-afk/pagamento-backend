@@ -6,6 +6,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+// 🔥 SEU TOKEN MERCADO PAGO
 const ACCESS_TOKEN = "SEU_TOKEN_MP";
 
 // 🔥 CRIAR PAGAMENTO
@@ -51,21 +52,30 @@ app.post("/webhook", async (req, res) => {
     if (data.type === "payment") {
       const paymentId = data.data.id;
 
-      const response = await axios.get(
-        `https://api.mercadopago.com/v1/payments/${paymentId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${ACCESS_TOKEN}`,
-          },
-        }
-      );
+      let payment;
 
-      const payment = response.data;
+      // 🔥 PROTEÇÃO PRA NÃO DAR ERRO NO TESTE DO MP
+      try {
+        const response = await axios.get(
+          `https://api.mercadopago.com/v1/payments/${paymentId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${ACCESS_TOKEN}`,
+            },
+          }
+        );
 
+        payment = response.data;
+      } catch (err) {
+        console.log("Pagamento não encontrado (teste do MP)");
+        return res.sendStatus(200);
+      }
+
+      // 🔥 SE FOI APROVADO
       if (payment.status === "approved") {
         console.log("PAGAMENTO APROVADO");
 
-        // 🔥 ENVIA PRO FACEBOOK
+        // 🔥 ENVIA EVENTO PRO FACEBOOK
         await axios.post(
           `https://graph.facebook.com/v17.0/SEU_PIXEL_ID/events?access_token=SEU_TOKEN_PIXEL`,
           {
