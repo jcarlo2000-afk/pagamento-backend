@@ -22,10 +22,10 @@ app.post("/criar-pagamento", async (req, res) => {
       method: "post",
       url: "https://api.mercadopago.com/v1/payments",
       headers: {
-        Authorization: `Bearer ${mp_access_token || ACCESS_TOKEN}`,
-        "Content-Type": "application/json",
-        ""X-Idempotency-Key": Math.random().toString(36).substring(2)
-      },
+  Authorization: `Bearer ${mp_access_token || ACCESS_TOKEN}`,
+  "Content-Type": "application/json",
+  "X-Idempotency-Key": Math.random().toString(36).substring(2)
+}
       data: {
         transaction_amount: Number(valor),
         description: plano,
