@@ -6,8 +6,9 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-const ACCESS_TOKEN = "APP_USR-3748734251896118-040521-beb30608163e897f56a935df8bc8f612-3316391333";
+const ACCESS_TOKEN = "SEU_TOKEN_MP";
 
+// 🔥 CRIAR PAGAMENTO
 app.post("/criar-pagamento", async (req, res) => {
   const { valor, plano } = req.body;
 
@@ -42,6 +43,60 @@ app.post("/criar-pagamento", async (req, res) => {
   }
 });
 
+// 🔥 WEBHOOK
+app.post("/webhook", async (req, res) => {
+  const data = req.body;
+
+  try {
+    if (data.type === "payment") {
+      const paymentId = data.data.id;
+
+      const response = await axios.get(
+        `https://api.mercadopago.com/v1/payments/${paymentId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${ACCESS_TOKEN}`,
+          },
+        }
+      );
+
+      const payment = response.data;
+
+      if (payment.status === "approved") {
+        console.log("PAGAMENTO APROVADO");
+
+        // 🔥 ENVIA PRO FACEBOOK
+        await axios.post(
+          `https://graph.facebook.com/v17.0/SEU_PIXEL_ID/events?access_token=SEU_TOKEN_PIXEL`,
+          {
+            data: [
+              {
+                event_name: "Purchase",
+                event_time: Math.floor(Date.now() / 1000),
+                action_source: "website",
+                user_data: {
+                  client_ip_address: req.ip,
+                  client_user_agent: req.headers["user-agent"],
+                },
+                custom_data: {
+                  currency: "BRL",
+                  value: payment.transaction_amount,
+                },
+              },
+            ],
+          }
+        );
+      }
+    }
+
+    res.sendStatus(200);
+  } catch (error) {
+    console.log(error.message);
+    res.sendStatus(500);
+  }
+});
+
+// 🔥 SEMPRE NO FINAL
 app.listen(3000, () => {
-  console.log("Servidor rodando em http://localhost:3000");
+  console.log("Servidor rodando");
 });
