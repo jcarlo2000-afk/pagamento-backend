@@ -6,12 +6,11 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// 🔥 SEU TOKEN MERCADO PAGO
-const ACCESS_TOKEN = "APP_USR-8160232292809421-040611-e64cdfec61c2cb974c5ea3483267af93-444844372";
+const ACCESS_TOKEN = "SEU_TOKEN_MP";
 
 // 🔥 CRIAR PAGAMENTO
 app.post("/criar-pagamento", async (req, res) => {
-  const { valor, plano } = req.body;
+  const { valor, plano, pixel_id, pixel_token } = req.body;
 
   try {
     const response = await axios.post(
@@ -26,6 +25,8 @@ app.post("/criar-pagamento", async (req, res) => {
         ],
         metadata: {
           plano: plano,
+          pixel_id: pixel_id,
+          pixel_token: pixel_token,
         },
       },
       {
@@ -39,7 +40,7 @@ app.post("/criar-pagamento", async (req, res) => {
       link: response.data.init_point,
     });
   } catch (error) {
-    console.log(error.response?.data || error.message);
+    console.log("ERRO MP:", error.response?.data || error.message);
     res.status(500).json({ error: "Erro ao criar pagamento" });
   }
 });
@@ -54,7 +55,6 @@ app.post("/webhook", async (req, res) => {
 
       let payment;
 
-      // 🔥 PROTEÇÃO PRA NÃO DAR ERRO NO TESTE DO MP
       try {
         const response = await axios.get(
           `https://api.mercadopago.com/v1/payments/${paymentId}`,
@@ -67,46 +67,54 @@ app.post("/webhook", async (req, res) => {
 
         payment = response.data;
       } catch (err) {
-        console.log("Pagamento não encontrado (teste do MP)");
+        console.log("Pagamento não encontrado (teste MP)");
         return res.sendStatus(200);
       }
 
-      // 🔥 SE FOI APROVADO
       if (payment.status === "approved") {
         console.log("PAGAMENTO APROVADO");
 
-        // 🔥 ENVIA EVENTO PRO FACEBOOK
-        await axios.post(
-          `"https://graph.facebook.com/v17.0/910189738059566/events?access_token=EAA8KT4WRIZCIBRGqgjIZAj7RQkJ1votMCbRFsdQggjBH7GuKRLKJMeHmUZCfdSII5CPSIxabEZAX0VZARLdzzcgEqsOV38zlwtsp8Tp6QZCaRxoNkMl5GVWWiAbEgbGpqqPysdtH4ZA8yocG9ZBGztxWrqrsXJwlE67q8DCLAZANJpMPZCaBW3CQHsCVCCaisgZAQZDZD"`,
-          {
-            data: [
-              {
-                event_name: "Purchase",
-                event_time: Math.floor(Date.now() / 1000),
-                action_source: "website",
-                user_data: {
-                  client_ip_address: req.ip,
-                  client_user_agent: req.headers["user-agent"],
+        // 🔥 PEGA PIXEL DINÂMICO
+        const pixel_id = payment.metadata?.pixel_id;
+        const pixel_token = payment.metadata?.pixel_token;
+
+        if (pixel_id && pixel_token) {
+          await axios.post(
+            `https://graph.facebook.com/v17.0/${pixel_id}/events?access_token=${pixel_token}`,
+            {
+              data: [
+                {
+                  event_name: "Purchase",
+                  event_time: Math.floor(Date.now() / 1000),
+                  action_source: "website",
+                  user_data: {
+                    client_ip_address: req.ip,
+                    client_user_agent: req.headers["user-agent"],
+                  },
+                  custom_data: {
+                    currency: "BRL",
+                    value: payment.transaction_amount,
+                  },
                 },
-                custom_data: {
-                  currency: "BRL",
-                  value: payment.transaction_amount,
-                },
-              },
-            ],
-          }
-        );
+              ],
+            }
+          );
+
+          console.log("PIXEL ENVIADO:", pixel_id);
+        } else {
+          console.log("Pixel não encontrado no metadata");
+        }
       }
     }
 
     res.sendStatus(200);
   } catch (error) {
-    console.log(error.message);
+    console.log("ERRO WEBHOOK:", error.message);
     res.sendStatus(500);
   }
 });
 
-// 🔥 SEMPRE NO FINAL
+// 🔥 FINAL
 app.listen(3000, () => {
   console.log("Servidor rodando");
 });
