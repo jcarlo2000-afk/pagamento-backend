@@ -7,7 +7,7 @@ app.use(express.json());
 app.use(cors());
 
 // 🔥 SEU TOKEN MERCADO PAGO
-const ACCESS_TOKEN = "SEU_TOKEN_MP";
+const ACCESS_TOKEN = "APP_USR-8160232292809421-040611-e64cdfec61c2cb974c5ea3483267af93-444844372";
 
 // 🔥 CRIAR PAGAMENTO
 app.post("/criar-pagamento", async (req, res) => {
