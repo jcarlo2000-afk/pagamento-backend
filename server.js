@@ -8,44 +8,52 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// 🔥 TOKEN PADRÃO (fallback)
-const ACCESS_TOKEN = "APP_USR-72378658-cb9e-481a-bba1-940d95b54d1e";
+// 🔥 MEMÓRIA DE PAGAMENTOS (depois você troca por banco)
+const pagamentos = {};
+
+// 🔥 TOKEN PADRÃO
+const ACCESS_TOKEN = "SEU_TOKEN_AQUI";
 
 // 🔥 CRIAR PAGAMENTO PIX
 app.post("/criar-pagamento", async (req, res) => {
-  console.log("BODY:", req.body);
-
   const { valor, plano, pixel_id, pixel_token, mp_access_token, email } = req.body;
 
   try {
     const response = await axios({
-  method: "post",
-  url: "https://api.mercadopago.com/v1/payments",
-  headers: {
-    Authorization: `Bearer ${mp_access_token || ACCESS_TOKEN}`,
-    "Content-Type": "application/json",
-    "X-Idempotency-Key": Math.random().toString(36).substring(2)
-  },
-  data: {
-    transaction_amount: Number(valor),
-    description: plano,
-    payment_method_id: "pix",
-    payer: {
-      email: email || "teste@teste.com"
-    },
-    metadata: {
-      plano,
-      pixel_id,
-      pixel_token,
-      mp_access_token
-    }
-  }
-});
+      method: "post",
+      url: "https://api.mercadopago.com/v1/payments",
+      headers: {
+        Authorization: `Bearer ${mp_access_token || ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+        "X-Idempotency-Key": Math.random().toString(36).substring(2)
+      },
+      data: {
+        transaction_amount: Number(valor),
+        description: plano,
+        payment_method_id: "pix",
+        payer: {
+          email: email || "teste@teste.com"
+        },
+        metadata: {
+          plano,
+          pixel_id,
+          pixel_token,
+          mp_access_token
+        }
+      }
+    });
+
     const pix = response.data.point_of_interaction.transaction_data;
+
+    // 🔥 SALVA COMO PENDENTE
+    pagamentos[response.data.id] = {
+      status: "pending"
+    };
 
     res.json({
       pix_code: pix.qr_code,
-      qr_code: pix.qr_code_base64
+      qr_code: pix.qr_code_base64,
+      payment_id: response.data.id // 🔥 ESSENCIAL
     });
 
   } catch (error) {
@@ -62,27 +70,27 @@ app.post("/webhook", async (req, res) => {
     if (data.type === "payment") {
       const paymentId = data.data.id;
 
-      let payment;
+      const response = await axios.get(
+        `https://api.mercadopago.com/v1/payments/${paymentId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${ACCESS_TOKEN}`,
+          },
+        }
+      );
 
-      try {
-        const response = await axios.get(
-          `https://api.mercadopago.com/v1/payments/${paymentId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${ACCESS_TOKEN}`,
-            },
-          }
-        );
-
-        payment = response.data;
-      } catch (err) {
-        console.log("Pagamento não encontrado (teste MP)");
-        return res.sendStatus(200);
-      }
+      const payment = response.data;
 
       if (payment.status === "approved") {
-        console.log("PAGAMENTO APROVADO");
+        console.log("✅ PAGAMENTO APROVADO:", paymentId);
 
+        // 🔥 ATUALIZA STATUS
+        pagamentos[paymentId] = {
+          status: "approved",
+          valor: payment.transaction_amount
+        };
+
+        // 🔥 PIXEL
         const pixel_id = payment.metadata?.pixel_id;
         const pixel_token = payment.metadata?.pixel_token;
 
@@ -108,9 +116,7 @@ app.post("/webhook", async (req, res) => {
             }
           );
 
-          console.log("PIXEL ENVIADO:", pixel_id);
-        } else {
-          console.log("Pixel não encontrado no metadata");
+          console.log("🔥 PIXEL ENVIADO");
         }
       }
     }
@@ -120,6 +126,17 @@ app.post("/webhook", async (req, res) => {
     console.log("ERRO WEBHOOK:", error.message);
     res.sendStatus(500);
   }
+});
+
+// 🔥 ROTA DE STATUS (LOVABLE USA ISSO)
+app.get("/status/:id", (req, res) => {
+  const pagamento = pagamentos[req.params.id];
+
+  if (!pagamento) {
+    return res.json({ status: "pending" });
+  }
+
+  res.json(pagamento);
 });
 
 // 🔥 START
