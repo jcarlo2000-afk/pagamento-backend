@@ -1,4 +1,4 @@
-console.log("🔥 NOVA VERSÃO DO BACKEND RODANDO");
+console.log("🔥 BACKEND RODANDO (VERSÃO PRODUÇÃO)");
 
 const express = require("express");
 const axios = require("axios");
@@ -8,22 +8,28 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// 🔥 MEMÓRIA DE PAGAMENTOS (depois você troca por banco)
+// 🔥 MEMÓRIA (depois trocar por banco)
 const pagamentos = {};
 
-// 🔥 TOKEN PADRÃO
-const ACCESS_TOKEN = "SEU_TOKEN_AQUI";
+// 🔐 TOKEN VIA ENV (Render)
+const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
 
 // 🔥 CRIAR PAGAMENTO PIX
 app.post("/criar-pagamento", async (req, res) => {
   const { valor, plano, pixel_id, pixel_token, mp_access_token, email } = req.body;
 
   try {
+    const token = mp_access_token || ACCESS_TOKEN;
+
+    if (!token) {
+      return res.status(400).json({ error: "Token Mercado Pago não fornecido" });
+    }
+
     const response = await axios({
       method: "post",
       url: "https://api.mercadopago.com/v1/payments",
       headers: {
-        Authorization: `Bearer ${mp_access_token || ACCESS_TOKEN}`,
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
         "X-Idempotency-Key": Math.random().toString(36).substring(2)
       },
@@ -38,14 +44,14 @@ app.post("/criar-pagamento", async (req, res) => {
           plano,
           pixel_id,
           pixel_token,
-          mp_access_token
+          mp_access_token: token
         }
       }
     });
 
     const pix = response.data.point_of_interaction.transaction_data;
 
-    // 🔥 SALVA COMO PENDENTE
+    // 🔥 salva status
     pagamentos[response.data.id] = {
       status: "pending"
     };
@@ -53,7 +59,7 @@ app.post("/criar-pagamento", async (req, res) => {
     res.json({
       pix_code: pix.qr_code,
       qr_code: pix.qr_code_base64,
-      payment_id: response.data.id // 🔥 ESSENCIAL
+      payment_id: response.data.id
     });
 
   } catch (error) {
@@ -64,9 +70,9 @@ app.post("/criar-pagamento", async (req, res) => {
 
 // 🔥 WEBHOOK
 app.post("/webhook", async (req, res) => {
-  const data = req.body;
-
   try {
+    const data = req.body;
+
     if (data.type === "payment") {
       const paymentId = data.data.id;
 
@@ -84,13 +90,11 @@ app.post("/webhook", async (req, res) => {
       if (payment.status === "approved") {
         console.log("✅ PAGAMENTO APROVADO:", paymentId);
 
-        // 🔥 ATUALIZA STATUS
         pagamentos[paymentId] = {
           status: "approved",
           valor: payment.transaction_amount
         };
 
-        // 🔥 PIXEL
         const pixel_id = payment.metadata?.pixel_id;
         const pixel_token = payment.metadata?.pixel_token;
 
@@ -128,7 +132,7 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-// 🔥 ROTA DE STATUS (LOVABLE USA ISSO)
+// 🔥 STATUS PARA LOVABLE
 app.get("/status/:id", (req, res) => {
   const pagamento = pagamentos[req.params.id];
 
@@ -139,7 +143,9 @@ app.get("/status/:id", (req, res) => {
   res.json(pagamento);
 });
 
-// 🔥 START
-app.listen(3000, () => {
-  console.log("Servidor rodando");
+// 🔥 PORTA CORRETA (ESSENCIAL PRA RENDER)
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log("Servidor rodando na porta", PORT);
 });
