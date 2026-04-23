@@ -1,4 +1,4 @@
-console.log("🔥 BACKEND RODANDO (VERSÃO PRODUÇÃO)");
+console.log("🔥 BACKEND RODANDO (VERSÃO OTIMIZADA)");
 
 const express = require("express");
 const axios = require("axios");
@@ -8,13 +8,24 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// 🔥 MEMÓRIA (depois trocar por banco)
+// 🔥 MEMÓRIA (trocar por banco depois)
 const pagamentos = {};
 
-// 🔐 TOKEN VIA ENV (Render)
+// 🔐 TOKEN VIA ENV
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
 
-// 🔥 CRIAR PAGAMENTO PIX
+
+// ========================================
+// 🟢 ROTA ANTI-SLEEP (IMPORTANTE)
+// ========================================
+app.get("/health", (req, res) => {
+  res.status(200).send("OK");
+});
+
+
+// ========================================
+// 💰 CRIAR PAGAMENTO PIX
+// ========================================
 app.post("/criar-pagamento", async (req, res) => {
   const { valor, plano, pixel_id, pixel_token, mp_access_token, email } = req.body;
 
@@ -63,12 +74,15 @@ app.post("/criar-pagamento", async (req, res) => {
     });
 
   } catch (error) {
-    console.log("ERRO PIX:", error.response?.data || error.message);
+    console.log("❌ ERRO PIX:", error.response?.data || error.message);
     res.status(500).json({ error: "Erro ao gerar PIX" });
   }
 });
 
-// 🔥 WEBHOOK
+
+// ========================================
+// 🔔 WEBHOOK MERCADO PAGO
+// ========================================
 app.post("/webhook", async (req, res) => {
   try {
     const data = req.body;
@@ -76,11 +90,15 @@ app.post("/webhook", async (req, res) => {
     if (data.type === "payment") {
       const paymentId = data.data.id;
 
+      // 🔥 tenta pegar token dinâmico (melhor que fixo)
+      const pagamentoSalvo = pagamentos[paymentId];
+      const token = pagamentoSalvo?.mp_access_token || ACCESS_TOKEN;
+
       const response = await axios.get(
         `https://api.mercadopago.com/v1/payments/${paymentId}`,
         {
           headers: {
-            Authorization: `Bearer ${ACCESS_TOKEN}`,
+            Authorization: `Bearer ${token}`,
           },
         }
       );
@@ -98,6 +116,7 @@ app.post("/webhook", async (req, res) => {
         const pixel_id = payment.metadata?.pixel_id;
         const pixel_token = payment.metadata?.pixel_token;
 
+        // 🔥 DISPARO PIXEL
         if (pixel_id && pixel_token) {
           await axios.post(
             `https://graph.facebook.com/v17.0/${pixel_id}/events?access_token=${pixel_token}`,
@@ -127,12 +146,15 @@ app.post("/webhook", async (req, res) => {
 
     res.sendStatus(200);
   } catch (error) {
-    console.log("ERRO WEBHOOK:", error.message);
+    console.log("❌ ERRO WEBHOOK:", error.message);
     res.sendStatus(500);
   }
 });
 
-// 🔥 STATUS PARA LOVABLE
+
+// ========================================
+// 📊 STATUS (LOVABLE)
+// ========================================
 app.get("/status/:id", (req, res) => {
   const pagamento = pagamentos[req.params.id];
 
@@ -143,9 +165,12 @@ app.get("/status/:id", (req, res) => {
   res.json(pagamento);
 });
 
-// 🔥 PORTA CORRETA (ESSENCIAL PRA RENDER)
+
+// ========================================
+// 🚀 START SERVER
+// ========================================
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log("Servidor rodando na porta", PORT);
+  console.log("🚀 Servidor rodando na porta", PORT);
 });
