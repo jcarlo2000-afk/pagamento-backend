@@ -32,13 +32,20 @@ app.post("/criar-pagamento", async (req, res) => {
   try {
     const token = mp_access_token || ACCESS_TOKEN;
 
+    // 🔥 EMAIL FALLBACK (CORREÇÃO AQUI)
+    const emailFinal = email && email !== "" ? email : "teste@gmail.com";
+
+    console.log("EMAIL PIX:", emailFinal);
+
     const response = await axios.post(
       "https://api.mercadopago.com/v1/payments",
       {
         transaction_amount: Number(valor),
         description: plano,
         payment_method_id: "pix",
-        payer: { email },
+        payer: {
+          email: emailFinal
+        },
         metadata: {
           plano,
           pixel_id,
@@ -75,7 +82,7 @@ app.post("/criar-pagamento", async (req, res) => {
 
 
 // ========================================
-// 💳 CARTÃO
+// 💳 CARTÃO (NÃO MEXI)
 // ========================================
 app.post("/pagar-cartao", async (req, res) => {
   const { token, valor, email, mp_access_token, pixel_id, pixel_token } = req.body;
@@ -115,7 +122,6 @@ app.post("/pagar-cartao", async (req, res) => {
       mp_access_token: tokenMP
     };
 
-    // 🔥 DISPARA PIXEL SE APROVADO
     if (payment.status === "approved" && pixel_id && pixel_token) {
       await axios.post(
         `https://graph.facebook.com/v17.0/${pixel_id}/events?access_token=${pixel_token}`,
