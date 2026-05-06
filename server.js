@@ -26,6 +26,10 @@ app.use(express.json());
 // ✅ VARIÁVEIS
 // ========================================
 const pagamentos = {};
+
+// 🚫 CONTROLE IC DUPLICADO
+const icEnviado = {};
+
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
 
 
@@ -118,50 +122,65 @@ app.post("/criar-pagamento", async (req, res) => {
     // ========================================
     if (pixel_id && pixel_token) {
 
-      const emailHash = crypto
-        .createHash("sha256")
-        .update(emailFinal.trim().toLowerCase())
-        .digest("hex");
+      // 🚫 BLOQUEIA IC DUPLICADO
+      const chaveIC =
+        `${emailFinal}_${pixel_id}`;
 
-      axios.post(
-        `https://graph.facebook.com/v17.0/${pixel_id}/events`,
-        {
-          data: [
-            {
-              event_name: "InitiateCheckout",
+      if (!icEnviado[chaveIC]) {
 
-              event_time:
-                Math.floor(Date.now() / 1000),
+        icEnviado[chaveIC] = true;
 
-              action_source: "website",
+        const emailHash = crypto
+          .createHash("sha256")
+          .update(emailFinal.trim().toLowerCase())
+          .digest("hex");
 
-              user_data: {
-                em: [emailHash]
+        axios.post(
+          `https://graph.facebook.com/v17.0/${pixel_id}/events`,
+          {
+            data: [
+              {
+                event_name: "InitiateCheckout",
+
+                event_time:
+                  Math.floor(Date.now() / 1000),
+
+                action_source: "website",
+
+                user_data: {
+                  em: [emailHash]
+                },
+
+                custom_data: {
+                  currency: "BRL",
+                  value: Number(valor),
+                },
               },
-
-              custom_data: {
-                currency: "BRL",
-                value: Number(valor),
-              },
-            },
-          ],
-        },
-        {
-          params: {
-            access_token: pixel_token,
+            ],
           },
-        }
-      )
-      .then(() => {
-        console.log("🔥 IC EVENT ENVIADO");
-      })
-      .catch((err) => {
-        console.log(
-          "⚠️ ERRO FACEBOOK:",
-          err.response?.data || err.message
-        );
-      });
+          {
+            params: {
+              access_token: pixel_token,
+            },
+          }
+        )
+        .then(() => {
+          console.log("🔥 IC EVENT ENVIADO");
+        })
+        .catch((err) => {
+          console.log(
+            "⚠️ ERRO FACEBOOK:",
+            err.response?.data || err.message
+          );
+        });
 
+      } else {
+
+        console.log(
+          "⚠️ IC JÁ ENVIADO NESTA SESSÃO"
+        );
+
+      }
     }
 
 
@@ -221,50 +240,65 @@ app.post("/pagar-cartao", async (req, res) => {
     // ========================================
     if (pixel_id && pixel_token) {
 
-      const emailHash = crypto
-        .createHash("sha256")
-        .update(email.trim().toLowerCase())
-        .digest("hex");
+      // 🚫 BLOQUEIA IC DUPLICADO
+      const chaveIC =
+        `${email}_${pixel_id}`;
 
-      axios.post(
-        `https://graph.facebook.com/v17.0/${pixel_id}/events`,
-        {
-          data: [
-            {
-              event_name: "InitiateCheckout",
+      if (!icEnviado[chaveIC]) {
 
-              event_time:
-                Math.floor(Date.now() / 1000),
+        icEnviado[chaveIC] = true;
 
-              action_source: "website",
+        const emailHash = crypto
+          .createHash("sha256")
+          .update(email.trim().toLowerCase())
+          .digest("hex");
 
-              user_data: {
-                em: [emailHash]
+        axios.post(
+          `https://graph.facebook.com/v17.0/${pixel_id}/events`,
+          {
+            data: [
+              {
+                event_name: "InitiateCheckout",
+
+                event_time:
+                  Math.floor(Date.now() / 1000),
+
+                action_source: "website",
+
+                user_data: {
+                  em: [emailHash]
+                },
+
+                custom_data: {
+                  currency: "BRL",
+                  value: Number(valor),
+                },
               },
-
-              custom_data: {
-                currency: "BRL",
-                value: Number(valor),
-              },
-            },
-          ],
-        },
-        {
-          params: {
-            access_token: pixel_token,
+            ],
           },
-        }
-      )
-      .then(() => {
-        console.log("🔥 IC CARTÃO ENVIADO");
-      })
-      .catch((err) => {
-        console.log(
-          "⚠️ ERRO IC CARTÃO:",
-          err.response?.data || err.message
-        );
-      });
+          {
+            params: {
+              access_token: pixel_token,
+            },
+          }
+        )
+        .then(() => {
+          console.log("🔥 IC CARTÃO ENVIADO");
+        })
+        .catch((err) => {
+          console.log(
+            "⚠️ ERRO IC CARTÃO:",
+            err.response?.data || err.message
+          );
+        });
 
+      } else {
+
+        console.log(
+          "⚠️ IC JÁ ENVIADO NESTA SESSÃO"
+        );
+
+      }
     }
 
 
