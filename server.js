@@ -30,6 +30,7 @@ app.post("/criar-pagamento", async (req, res) => {
 
     console.log("EMAIL PIX:", emailFinal);
 
+    // ✅ CRIA O PIX (MERCADO PAGO)
     const response = await axios.post(
       "https://api.mercadopago.com/v1/payments",
       {
@@ -59,38 +60,36 @@ app.post("/criar-pagamento", async (req, res) => {
       mp_access_token: token
     };
 
-    // 🔥 IC EVENT CORRIGIDO
+    // 🔥 IC EVENT (NÃO BLOQUEIA)
     if (pixel_id && pixel_token) {
-      try {
-        await axios.post(
-          `https://graph.facebook.com/v17.0/${pixel_id}/events`,
-          {
-            data: [
-              {
-                event_name: "InitiateCheckout",
-                event_time: Math.floor(Date.now() / 1000),
-                action_source: "website",
-                user_data: {
-                  em: [emailFinal]
-                },
-                custom_data: {
-                  currency: "BRL",
-                  value: Number(valor),
-                },
+      axios.post(
+        `https://graph.facebook.com/v17.0/${pixel_id}/events`,
+        {
+          data: [
+            {
+              event_name: "InitiateCheckout",
+              event_time: Math.floor(Date.now() / 1000),
+              action_source: "website",
+              user_data: {
+                em: [emailFinal]
               },
-            ],
-          },
-          {
-            params: {
-              access_token: pixel_token,
+              custom_data: {
+                currency: "BRL",
+                value: Number(valor),
+              },
             },
-          }
-        );
-
-        console.log("🔥 IC EVENT ENVIADO");
-      } catch (err) {
-        console.log("⚠️ ERRO IC:", err.response?.data || err.message);
-      }
+          ],
+        },
+        {
+          params: {
+            access_token: pixel_token,
+          },
+        }
+      )
+      .then(() => console.log("🔥 IC EVENT ENVIADO"))
+      .catch((err) =>
+        console.log("⚠️ ERRO IC:", err.response?.data || err.message)
+      );
     }
 
     res.json({
@@ -115,38 +114,36 @@ app.post("/pagar-cartao", async (req, res) => {
   try {
     const tokenMP = mp_access_token || ACCESS_TOKEN;
 
-    // 🔥 IC NO CARTÃO
+    // 🔥 IC CARTÃO (NÃO BLOQUEIA)
     if (pixel_id && pixel_token) {
-      try {
-        await axios.post(
-          `https://graph.facebook.com/v17.0/${pixel_id}/events`,
-          {
-            data: [
-              {
-                event_name: "InitiateCheckout",
-                event_time: Math.floor(Date.now() / 1000),
-                action_source: "website",
-                user_data: {
-                  em: [email]
-                },
-                custom_data: {
-                  currency: "BRL",
-                  value: Number(valor),
-                },
+      axios.post(
+        `https://graph.facebook.com/v17.0/${pixel_id}/events`,
+        {
+          data: [
+            {
+              event_name: "InitiateCheckout",
+              event_time: Math.floor(Date.now() / 1000),
+              action_source: "website",
+              user_data: {
+                em: [email]
               },
-            ],
-          },
-          {
-            params: {
-              access_token: pixel_token,
+              custom_data: {
+                currency: "BRL",
+                value: Number(valor),
+              },
             },
-          }
-        );
-
-        console.log("🔥 IC CARTÃO ENVIADO");
-      } catch (err) {
-        console.log("⚠️ ERRO IC CARTÃO:", err.response?.data || err.message);
-      }
+          ],
+        },
+        {
+          params: {
+            access_token: pixel_token,
+          },
+        }
+      )
+      .then(() => console.log("🔥 IC CARTÃO ENVIADO"))
+      .catch((err) =>
+        console.log("⚠️ ERRO IC CARTÃO:", err.response?.data || err.message)
+      );
     }
 
     const response = await axios.post(
@@ -178,39 +175,6 @@ app.post("/pagar-cartao", async (req, res) => {
       valor: payment.transaction_amount,
       mp_access_token: tokenMP
     };
-
-    if (payment.status === "approved" && pixel_id && pixel_token) {
-      try {
-        await axios.post(
-          `https://graph.facebook.com/v17.0/${pixel_id}/events`,
-          {
-            data: [
-              {
-                event_name: "Purchase",
-                event_time: Math.floor(Date.now() / 1000),
-                action_source: "website",
-                user_data: {
-                  em: [email]
-                },
-                custom_data: {
-                  currency: "BRL",
-                  value: payment.transaction_amount,
-                },
-              },
-            ],
-          },
-          {
-            params: {
-              access_token: pixel_token,
-            },
-          }
-        );
-
-        console.log("🔥 PIXEL CARTÃO ENVIADO");
-      } catch (err) {
-        console.log("⚠️ ERRO PIXEL CARTÃO:", err.response?.data || err.message);
-      }
-    }
 
     res.json({
       status: payment.status
