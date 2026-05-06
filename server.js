@@ -93,7 +93,8 @@ app.post("/criar-pagamento", async (req, res) => {
         metadata: {
           plano,
           pixel_id,
-          pixel_token
+          pixel_token,
+          mp_access_token: token
         }
       },
       {
@@ -151,7 +152,6 @@ app.post("/criar-pagamento", async (req, res) => {
     // ========================================
     if (pixel_id && pixel_token) {
 
-      // 🚫 BLOQUEIA IC DUPLICADO
       const chaveIC =
         `${emailFinal}_${pixel_id}`;
 
@@ -263,7 +263,6 @@ app.post("/pagar-cartao", async (req, res) => {
       });
     }
 
-
     // ========================================
     // 🔥 FACEBOOK IC CARTÃO
     // ========================================
@@ -329,7 +328,6 @@ app.post("/pagar-cartao", async (req, res) => {
       }
     }
 
-
     // ========================================
     // 💳 MERCADO PAGO CARTÃO
     // ========================================
@@ -352,7 +350,8 @@ app.post("/pagar-cartao", async (req, res) => {
 
         metadata: {
           pixel_id,
-          pixel_token
+          pixel_token,
+          mp_access_token: tokenMP
         }
       },
       {
@@ -367,7 +366,8 @@ app.post("/pagar-cartao", async (req, res) => {
 
     pagamentos[payment.id] = {
       status: payment.status,
-      valor: payment.transaction_amount
+      valor: payment.transaction_amount,
+      mp_access_token: tokenMP
     };
 
     res.json({
@@ -450,11 +450,19 @@ app.post("/webhook", async (req, res) => {
 
     console.log("🔔 WEBHOOK:", paymentId);
 
+    const tokenMP =
+      pagamentos[paymentId]?.mp_access_token;
+
+    if (!tokenMP) {
+      console.log("❌ TOKEN MP NÃO ENCONTRADO");
+      return res.sendStatus(500);
+    }
+
     const response = await axios.get(
       `https://api.mercadopago.com/v1/payments/${paymentId}`,
       {
         headers: {
-          Authorization: `Bearer ${ACCESS_TOKEN}`
+          Authorization: `Bearer ${tokenMP}`
         }
       }
     );
@@ -467,7 +475,8 @@ app.post("/webhook", async (req, res) => {
 
     pagamentos[payment.id] = {
       status: payment.status,
-      valor: payment.transaction_amount
+      valor: payment.transaction_amount,
+      mp_access_token: tokenMP
     };
 
 
