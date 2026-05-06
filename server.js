@@ -16,7 +16,8 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
-app.options("*", cors());
+// ✅ FIX RAILWAY / EXPRESS
+app.options(/.*/, cors());
 
 app.use(express.json());
 
@@ -40,6 +41,7 @@ app.get("/health", (req, res) => {
 // 💰 PIX
 // ========================================
 app.post("/criar-pagamento", async (req, res) => {
+
   const {
     valor,
     plano,
@@ -55,6 +57,7 @@ app.post("/criar-pagamento", async (req, res) => {
 
     if (!token) {
       console.log("❌ ACCESS TOKEN NÃO ENCONTRADO");
+
       return res.status(500).json({
         error: "ACCESS_TOKEN não configurado"
       });
@@ -74,7 +77,9 @@ app.post("/criar-pagamento", async (req, res) => {
       "https://api.mercadopago.com/v1/payments",
       {
         transaction_amount: Number(valor),
+
         description: plano || "Pagamento",
+
         payment_method_id: "pix",
 
         payer: {
@@ -119,7 +124,10 @@ app.post("/criar-pagamento", async (req, res) => {
           data: [
             {
               event_name: "InitiateCheckout",
-              event_time: Math.floor(Date.now() / 1000),
+
+              event_time:
+                Math.floor(Date.now() / 1000),
+
               action_source: "website",
 
               user_data: {
@@ -150,6 +158,7 @@ app.post("/criar-pagamento", async (req, res) => {
       });
 
     }
+
 
     // ========================================
     // ✅ RESPOSTA PIX
@@ -195,6 +204,7 @@ app.post("/pagar-cartao", async (req, res) => {
       mp_access_token || ACCESS_TOKEN;
 
     if (!tokenMP) {
+
       return res.status(500).json({
         error: "ACCESS_TOKEN não configurado"
       });
@@ -212,7 +222,10 @@ app.post("/pagar-cartao", async (req, res) => {
           data: [
             {
               event_name: "InitiateCheckout",
-              event_time: Math.floor(Date.now() / 1000),
+
+              event_time:
+                Math.floor(Date.now() / 1000),
+
               action_source: "website",
 
               user_data: {
@@ -316,6 +329,7 @@ app.get("/status/:id", async (req, res) => {
     const pagamento = pagamentos[id];
 
     if (!pagamento) {
+
       return res.json({
         status: "pending"
       });
@@ -325,7 +339,8 @@ app.get("/status/:id", async (req, res) => {
       `https://api.mercadopago.com/v1/payments/${id}`,
       {
         headers: {
-          Authorization: `Bearer ${pagamento.mp_access_token || ACCESS_TOKEN}`
+          Authorization:
+            `Bearer ${pagamento.mp_access_token || ACCESS_TOKEN}`
         }
       }
     );
@@ -382,8 +397,11 @@ app.post("/webhook", async (req, res) => {
     // ========================================
     // 🔥 PURCHASE FACEBOOK
     // ========================================
-    const pixel_id = payment.metadata?.pixel_id;
-    const pixel_token = payment.metadata?.pixel_token;
+    const pixel_id =
+      payment.metadata?.pixel_id;
+
+    const pixel_token =
+      payment.metadata?.pixel_token;
 
     if (
       payment.status === "approved" &&
@@ -397,7 +415,10 @@ app.post("/webhook", async (req, res) => {
           data: [
             {
               event_name: "Purchase",
-              event_time: Math.floor(Date.now() / 1000),
+
+              event_time:
+                Math.floor(Date.now() / 1000),
+
               action_source: "website",
 
               custom_data: {
