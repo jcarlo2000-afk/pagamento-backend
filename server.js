@@ -3,6 +3,7 @@ console.log("🔥 BACKEND RODANDO (PIX + CARTÃO)");
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
+const crypto = require("crypto");
 
 const app = express();
 
@@ -16,7 +17,6 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
-// ✅ FIX RAILWAY / EXPRESS
 app.options(/.*/, cors());
 
 app.use(express.json());
@@ -118,6 +118,11 @@ app.post("/criar-pagamento", async (req, res) => {
     // ========================================
     if (pixel_id && pixel_token) {
 
+      const emailHash = crypto
+        .createHash("sha256")
+        .update(emailFinal.trim().toLowerCase())
+        .digest("hex");
+
       axios.post(
         `https://graph.facebook.com/v17.0/${pixel_id}/events`,
         {
@@ -131,7 +136,7 @@ app.post("/criar-pagamento", async (req, res) => {
               action_source: "website",
 
               user_data: {
-                em: [emailFinal]
+                em: [emailHash]
               },
 
               custom_data: {
@@ -216,6 +221,11 @@ app.post("/pagar-cartao", async (req, res) => {
     // ========================================
     if (pixel_id && pixel_token) {
 
+      const emailHash = crypto
+        .createHash("sha256")
+        .update(email.trim().toLowerCase())
+        .digest("hex");
+
       axios.post(
         `https://graph.facebook.com/v17.0/${pixel_id}/events`,
         {
@@ -229,7 +239,7 @@ app.post("/pagar-cartao", async (req, res) => {
               action_source: "website",
 
               user_data: {
-                em: [email]
+                em: [emailHash]
               },
 
               custom_data: {
@@ -394,9 +404,6 @@ app.post("/webhook", async (req, res) => {
       valor: payment.transaction_amount
     };
 
-    // ========================================
-    // 🔥 PURCHASE FACEBOOK
-    // ========================================
     const pixel_id =
       payment.metadata?.pixel_id;
 
