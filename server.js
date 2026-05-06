@@ -26,8 +26,6 @@ app.use(express.json());
 // ✅ VARIÁVEIS
 // ========================================
 const pagamentos = {};
-
-// 🚫 CONTROLE IC DUPLICADO
 const icEnviado = {};
 
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
@@ -60,8 +58,6 @@ app.post("/criar-pagamento", async (req, res) => {
     const token = mp_access_token || ACCESS_TOKEN;
 
     if (!token) {
-      console.log("❌ ACCESS TOKEN NÃO ENCONTRADO");
-
       return res.status(500).json({
         error: "ACCESS_TOKEN não configurado"
       });
@@ -108,11 +104,10 @@ app.post("/criar-pagamento", async (req, res) => {
 
     console.log("✅ PIX CRIADO");
 
-
     // ========================================
     // 💾 SALVAR NO SUPABASE
     // ========================================
-    const supabaseCreate = await axios.post(
+    await axios.post(
       "https://frjoahehjmgsfojkyeej.supabase.co/functions/v1/save-payment",
       {
         payment_id: String(response.data.id),
@@ -131,11 +126,7 @@ app.post("/criar-pagamento", async (req, res) => {
       }
     );
 
-    console.log(
-      "💾 PAGAMENTO SALVO NO SUPABASE:",
-      supabaseCreate.data
-    );
-
+    console.log("💾 PAGAMENTO SALVO NO SUPABASE");
 
     const pix =
       response.data.point_of_interaction
@@ -145,7 +136,6 @@ app.post("/criar-pagamento", async (req, res) => {
       status: "pending",
       mp_access_token: token
     };
-
 
     // ========================================
     // 🔥 FACEBOOK IC
@@ -203,15 +193,8 @@ app.post("/criar-pagamento", async (req, res) => {
           );
         });
 
-      } else {
-
-        console.log(
-          "⚠️ IC JÁ ENVIADO NESTA SESSÃO"
-        );
-
       }
     }
-
 
     // ========================================
     // ✅ RESPOSTA PIX
@@ -257,7 +240,6 @@ app.post("/pagar-cartao", async (req, res) => {
       mp_access_token || ACCESS_TOKEN;
 
     if (!tokenMP) {
-
       return res.status(500).json({
         error: "ACCESS_TOKEN não configurado"
       });
@@ -308,23 +290,7 @@ app.post("/pagar-cartao", async (req, res) => {
               access_token: pixel_token,
             },
           }
-        )
-        .then(() => {
-          console.log("🔥 IC CARTÃO ENVIADO");
-        })
-        .catch((err) => {
-          console.log(
-            "⚠️ ERRO IC CARTÃO:",
-            err.response?.data || err.message
-          );
-        });
-
-      } else {
-
-        console.log(
-          "⚠️ IC JÁ ENVIADO NESTA SESSÃO"
         );
-
       }
     }
 
@@ -401,7 +367,6 @@ app.get("/status/:id", async (req, res) => {
     const pagamento = pagamentos[id];
 
     if (!pagamento) {
-
       return res.json({
         status: "pending"
       });
@@ -470,8 +435,6 @@ app.post("/webhook", async (req, res) => {
     const payment = response.data;
 
     console.log("💰 STATUS MP:", payment.status);
-    console.log("🆔 PAYMENT ID:", payment.id);
-    console.log("📧 EMAIL:", payment.payer?.email);
 
     pagamentos[payment.id] = {
       status: payment.status,
@@ -479,11 +442,10 @@ app.post("/webhook", async (req, res) => {
       mp_access_token: tokenMP
     };
 
-
     // ========================================
     // 💾 UPDATE SUPABASE
     // ========================================
-    const supabaseResponse = await axios.post(
+    await axios.post(
       "https://frjoahehjmgsfojkyeej.supabase.co/functions/v1/save-payment",
       {
         payment_id: String(payment.id),
@@ -502,11 +464,7 @@ app.post("/webhook", async (req, res) => {
       }
     );
 
-    console.log(
-      "💾 UPDATE SUPABASE:",
-      supabaseResponse.data
-    );
-
+    console.log("💾 STATUS ATUALIZADO NO SUPABASE");
 
     // ========================================
     // 🔥 FACEBOOK PURCHASE
@@ -523,6 +481,15 @@ app.post("/webhook", async (req, res) => {
       pixel_token
     ) {
 
+      const emailHash = crypto
+        .createHash("sha256")
+        .update(
+          (payment.payer?.email || "")
+            .trim()
+            .toLowerCase()
+        )
+        .digest("hex");
+
       axios.post(
         `https://graph.facebook.com/v17.0/${pixel_id}/events`,
         {
@@ -534,6 +501,10 @@ app.post("/webhook", async (req, res) => {
                 Math.floor(Date.now() / 1000),
 
               action_source: "website",
+
+              user_data: {
+                em: [emailHash]
+              },
 
               custom_data: {
                 currency: "BRL",
