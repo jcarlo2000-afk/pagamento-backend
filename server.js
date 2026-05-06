@@ -111,16 +111,16 @@ app.post("/criar-pagamento", async (req, res) => {
     // ========================================
     // 💾 SALVAR NO SUPABASE
     // ========================================
-    await axios.post(
+    const supabaseCreate = await axios.post(
       "https://frjoahehjmgsfojkyeej.supabase.co/functions/v1/save-payment",
       {
-        payment_id: response.data.id.toString(),
-        email: emailFinal,
+        payment_id: String(response.data.id),
+        email: String(emailFinal),
         valor: Number(valor),
-        plano: plano || "Plano",
+        plano: String(plano || "Plano"),
         status: "pending",
         metodo: "pix",
-        template: plano || "default"
+        template: String(plano || "default")
       },
       {
         headers: {
@@ -130,7 +130,10 @@ app.post("/criar-pagamento", async (req, res) => {
       }
     );
 
-    console.log("💾 PAGAMENTO SALVO NO SUPABASE");
+    console.log(
+      "💾 PAGAMENTO SALVO NO SUPABASE:",
+      supabaseCreate.data
+    );
 
 
     const pix =
@@ -266,7 +269,6 @@ app.post("/pagar-cartao", async (req, res) => {
     // ========================================
     if (pixel_id && pixel_token) {
 
-      // 🚫 BLOQUEIA IC DUPLICADO
       const chaveIC =
         `${email}_${pixel_id}`;
 
@@ -459,6 +461,10 @@ app.post("/webhook", async (req, res) => {
 
     const payment = response.data;
 
+    console.log("💰 STATUS MP:", payment.status);
+    console.log("🆔 PAYMENT ID:", payment.id);
+    console.log("📧 EMAIL:", payment.payer?.email);
+
     pagamentos[payment.id] = {
       status: payment.status,
       valor: payment.transaction_amount
@@ -468,16 +474,16 @@ app.post("/webhook", async (req, res) => {
     // ========================================
     // 💾 UPDATE SUPABASE
     // ========================================
-    await axios.post(
+    const supabaseResponse = await axios.post(
       "https://frjoahehjmgsfojkyeej.supabase.co/functions/v1/save-payment",
       {
-        payment_id: payment.id.toString(),
-        email: payment.payer?.email || "",
+        payment_id: String(payment.id),
+        email: String(payment.payer?.email || ""),
         valor: Number(payment.transaction_amount),
-        plano: payment.description || "Plano",
-        status: payment.status,
-        metodo: payment.payment_method_id || "pix",
-        template: payment.description || "default"
+        plano: String(payment.description || "Plano"),
+        status: String(payment.status),
+        metodo: String(payment.payment_method_id || "pix"),
+        template: String(payment.description || "default")
       },
       {
         headers: {
@@ -487,9 +493,15 @@ app.post("/webhook", async (req, res) => {
       }
     );
 
-    console.log("💾 STATUS ATUALIZADO NO SUPABASE");
+    console.log(
+      "💾 UPDATE SUPABASE:",
+      supabaseResponse.data
+    );
 
 
+    // ========================================
+    // 🔥 FACEBOOK PURCHASE
+    // ========================================
     const pixel_id =
       payment.metadata?.pixel_id;
 
