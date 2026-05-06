@@ -107,6 +107,32 @@ app.post("/criar-pagamento", async (req, res) => {
 
     console.log("✅ PIX CRIADO");
 
+
+    // ========================================
+    // 💾 SALVAR NO SUPABASE
+    // ========================================
+    await axios.post(
+      "https://frjoahehjmgsfojkyeej.supabase.co/functions/v1/save-payment",
+      {
+        payment_id: response.data.id.toString(),
+        email: emailFinal,
+        valor: Number(valor),
+        plano: plano || "Plano",
+        status: "pending",
+        metodo: "pix",
+        template: plano || "default"
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "x-webhook-secret": process.env.WEBHOOK_SECRET
+        }
+      }
+    );
+
+    console.log("💾 PAGAMENTO SALVO NO SUPABASE");
+
+
     const pix =
       response.data.point_of_interaction
         .transaction_data;
@@ -437,6 +463,32 @@ app.post("/webhook", async (req, res) => {
       status: payment.status,
       valor: payment.transaction_amount
     };
+
+
+    // ========================================
+    // 💾 UPDATE SUPABASE
+    // ========================================
+    await axios.post(
+      "https://frjoahehjmgsfojkyeej.supabase.co/functions/v1/save-payment",
+      {
+        payment_id: payment.id.toString(),
+        email: payment.payer?.email || "",
+        valor: Number(payment.transaction_amount),
+        plano: payment.description || "Plano",
+        status: payment.status,
+        metodo: payment.payment_method_id || "pix",
+        template: payment.description || "default"
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "x-webhook-secret": process.env.WEBHOOK_SECRET
+        }
+      }
+    );
+
+    console.log("💾 STATUS ATUALIZADO NO SUPABASE");
+
 
     const pixel_id =
       payment.metadata?.pixel_id;
