@@ -388,28 +388,17 @@ app.post("/webhook", async (req, res) => {
       }
     );
 
-    const paymentBase = firstResponse.data;
+    const payment = firstResponse.data;
+
+    console.log("💰 STATUS MP:", payment.status);
 
     const tokenMP =
-      paymentBase.metadata?.mp_access_token;
+      payment.metadata?.mp_access_token;
 
     if (!tokenMP) {
       console.log("⚠️ TOKEN MP NÃO ENCONTRADO");
       return res.sendStatus(200);
     }
-
-    const response = await axios.get(
-      `https://api.mercadopago.com/v1/payments/${paymentId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${tokenMP}`
-        }
-      }
-    );
-
-    const payment = response.data;
-
-    console.log("💰 STATUS MP:", payment.status);
 
     pagamentos[payment.id] = {
       status: payment.status,
@@ -417,97 +406,95 @@ app.post("/webhook", async (req, res) => {
       mp_access_token: tokenMP
     };
 
-    try {
+    // ========================================
+    // 🔥 NÃO ATUALIZA PENDING
+    // ========================================
+    if (payment.status === "approved") {
 
-      await axios.post(
-        "https://frjoahehjmgsfojkyeej.supabase.co/functions/v1/save-payment",
-        {
-          payment_id: String(payment.id),
-          email: String(payment.payer?.email || ""),
-          valor: Number(payment.transaction_amount),
-          plano: String(payment.description || "Plano"),
-          status: String(payment.status),
-          metodo: String(payment.payment_method_id || "pix"),
-          template: String(payment.description || "default")
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "x-webhook-secret": process.env.WEBHOOK_SECRET
-          }
-        }
-      );
+      try {
 
-      console.log("💾 STATUS ATUALIZADO NO SUPABASE");
-
-    } catch (err) {
-
-      console.log(
-        "⚠️ ERRO UPDATE SUPABASE:",
-        err.response?.data || err.message
-      );
-    }
-
-    const pixel_id =
-      payment.metadata?.pixel_id;
-
-    const pixel_token =
-      payment.metadata?.pixel_token;
-
-    if (
-      payment.status === "approved" &&
-      pixel_id &&
-      pixel_token
-    ) {
-
-      const emailHash = crypto
-        .createHash("sha256")
-        .update(
-          (payment.payer?.email || "")
-            .trim()
-            .toLowerCase()
-        )
-        .digest("hex");
-
-      axios.post(
-        `https://graph.facebook.com/v17.0/${pixel_id}/events`,
-        {
-          data: [
-            {
-              event_name: "Purchase",
-
-              event_time:
-                Math.floor(Date.now() / 1000),
-
-              action_source: "website",
-
-              user_data: {
-                em: [emailHash]
-              },
-
-              custom_data: {
-                currency: "BRL",
-                value: Number(payment.transaction_amount),
-              },
-            },
-          ],
-        },
-        {
-          params: {
-            access_token: pixel_token,
+        await axios.post(
+          "https://frjoahehjmgsfojkyeej.supabase.co/functions/v1/save-payment",
+          {
+            payment_id: String(payment.id),
+            email: String(payment.payer?.email || ""),
+            valor: Number(payment.transaction_amount),
+            plano: String(payment.description || "Plano"),
+            status: "approved",
+            metodo: String(payment.payment_method_id || "pix"),
+            template: String(payment.description || "default")
           },
-        }
-      )
-      .then(() => {
-        console.log("🔥 PURCHASE ENVIADO");
-      })
-      .catch((err) => {
-        console.log(
-          "⚠️ ERRO PURCHASE:",
-          err.response?.data || err.message
+          {
+            headers: {
+              "Content-Type": "application/json",
+              "x-webhook-secret": process.env.WEBHOOK_SECRET
+            }
+          }
         );
-      });
 
+        console.log("💾 STATUS ATUALIZADO NO SUPABASE");
+
+      } catch (err) {
+
+        console.log(
+          "⚠️ UPDATE SUPABASE IGNORADO"
+        );
+      }
+
+      const pixel_id =
+        payment.metadata?.pixel_id;
+
+      const pixel_token =
+        payment.metadata?.pixel_token;
+
+      if (pixel_id && pixel_token) {
+
+        const emailHash = crypto
+          .createHash("sha256")
+          .update(
+            (payment.payer?.email || "")
+              .trim()
+              .toLowerCase()
+          )
+          .digest("hex");
+
+        axios.post(
+          `https://graph.facebook.com/v17.0/${pixel_id}/events`,
+          {
+            data: [
+              {
+                event_name: "Purchase",
+
+                event_time:
+                  Math.floor(Date.now() / 1000),
+
+                action_source: "website",
+
+                user_data: {
+                  em: [emailHash]
+                },
+
+                custom_data: {
+                  currency: "BRL",
+                  value: Number(payment.transaction_amount),
+                },
+              },
+            ],
+          },
+          {
+            params: {
+              access_token: pixel_token,
+            },
+          }
+        )
+        .then(() => {
+          console.log("🔥 PURCHASE ENVIADO");
+        })
+        .catch(() => {
+          console.log("⚠️ PURCHASE IGNORADO");
+        });
+
+      }
     }
 
     return res.sendStatus(200);
@@ -515,8 +502,7 @@ app.post("/webhook", async (req, res) => {
   } catch (error) {
 
     console.log(
-      "⚠️ WEBHOOK IGNORADO:",
-      error.response?.data || error.message
+      "⚠️ WEBHOOK IGNORADO"
     );
 
     return res.sendStatus(200);
