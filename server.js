@@ -90,26 +90,36 @@ app.post("/criar-pagamento", async (req, res) => {
       mp_access_token: token
     };
 
-    await axios.post(
-      "https://frjoahehjmgsfojkyeej.supabase.co/functions/v1/save-payment",
-      {
-        payment_id: String(response.data.id),
-        email: String(emailFinal),
-        valor: Number(valor),
-        plano: String(plano || "Plano"),
-        status: "pending",
-        metodo: "pix",
-        template: String(plano || "default")
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "x-webhook-secret": process.env.WEBHOOK_SECRET
-        }
-      }
-    );
+    try {
 
-    console.log("💾 PAGAMENTO SALVO NO SUPABASE");
+      await axios.post(
+        "https://frjoahehjmgsfojkyeej.supabase.co/functions/v1/save-payment",
+        {
+          payment_id: String(response.data.id),
+          email: String(emailFinal),
+          valor: Number(valor),
+          plano: String(plano || "Plano"),
+          status: "pending",
+          metodo: "pix",
+          template: String(plano || "default")
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "x-webhook-secret": process.env.WEBHOOK_SECRET
+          }
+        }
+      );
+
+      console.log("💾 PAGAMENTO SALVO NO SUPABASE");
+
+    } catch (err) {
+
+      console.log(
+        "⚠️ ERRO SUPABASE CREATE:",
+        err.response?.data || err.message
+      );
+    }
 
     const pix =
       response.data.point_of_interaction
@@ -347,12 +357,12 @@ app.get("/status/:id", async (req, res) => {
   } catch (error) {
 
     console.log(
-      "❌ ERRO STATUS:",
+      "⚠️ ERRO STATUS:",
       error.response?.data || error.message
     );
 
-    res.status(500).json({
-      error: "Erro ao consultar status"
+    res.json({
+      status: "pending"
     });
   }
 });
@@ -384,7 +394,7 @@ app.post("/webhook", async (req, res) => {
       paymentBase.metadata?.mp_access_token;
 
     if (!tokenMP) {
-      console.log("❌ TOKEN MP NÃO ENCONTRADO");
+      console.log("⚠️ TOKEN MP NÃO ENCONTRADO");
       return res.sendStatus(200);
     }
 
@@ -407,26 +417,36 @@ app.post("/webhook", async (req, res) => {
       mp_access_token: tokenMP
     };
 
-    await axios.post(
-      "https://frjoahehjmgsfojkyeej.supabase.co/functions/v1/save-payment",
-      {
-        payment_id: String(payment.id),
-        email: String(payment.payer?.email || ""),
-        valor: Number(payment.transaction_amount),
-        plano: String(payment.description || "Plano"),
-        status: String(payment.status),
-        metodo: String(payment.payment_method_id || "pix"),
-        template: String(payment.description || "default")
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "x-webhook-secret": process.env.WEBHOOK_SECRET
-        }
-      }
-    );
+    try {
 
-    console.log("💾 STATUS ATUALIZADO NO SUPABASE");
+      await axios.post(
+        "https://frjoahehjmgsfojkyeej.supabase.co/functions/v1/save-payment",
+        {
+          payment_id: String(payment.id),
+          email: String(payment.payer?.email || ""),
+          valor: Number(payment.transaction_amount),
+          plano: String(payment.description || "Plano"),
+          status: String(payment.status),
+          metodo: String(payment.payment_method_id || "pix"),
+          template: String(payment.description || "default")
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "x-webhook-secret": process.env.WEBHOOK_SECRET
+          }
+        }
+      );
+
+      console.log("💾 STATUS ATUALIZADO NO SUPABASE");
+
+    } catch (err) {
+
+      console.log(
+        "⚠️ ERRO UPDATE SUPABASE:",
+        err.response?.data || err.message
+      );
+    }
 
     const pixel_id =
       payment.metadata?.pixel_id;
@@ -490,16 +510,16 @@ app.post("/webhook", async (req, res) => {
 
     }
 
-    res.sendStatus(200);
+    return res.sendStatus(200);
 
   } catch (error) {
 
     console.log(
-      "❌ ERRO WEBHOOK:",
+      "⚠️ WEBHOOK IGNORADO:",
       error.response?.data || error.message
     );
 
-    res.sendStatus(500);
+    return res.sendStatus(200);
   }
 });
 
