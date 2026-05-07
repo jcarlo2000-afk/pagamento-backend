@@ -105,6 +105,14 @@ app.post("/criar-pagamento", async (req, res) => {
     console.log("✅ PIX CRIADO");
 
     // ========================================
+    // ✅ SALVA TOKEN IMEDIATAMENTE
+    // ========================================
+    pagamentos[response.data.id] = {
+      status: "pending",
+      mp_access_token: token
+    };
+
+    // ========================================
     // 💾 SALVAR NO SUPABASE
     // ========================================
     await axios.post(
@@ -131,11 +139,6 @@ app.post("/criar-pagamento", async (req, res) => {
     const pix =
       response.data.point_of_interaction
         .transaction_data;
-
-    pagamentos[response.data.id] = {
-      status: "pending",
-      mp_access_token: token
-    };
 
     // ========================================
     // 🔥 FACEBOOK IC
@@ -420,7 +423,7 @@ app.post("/webhook", async (req, res) => {
 
     if (!tokenMP) {
       console.log("❌ TOKEN MP NÃO ENCONTRADO");
-      return res.sendStatus(500);
+      return res.sendStatus(200);
     }
 
     const response = await axios.get(
