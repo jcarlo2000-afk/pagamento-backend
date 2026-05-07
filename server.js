@@ -7,10 +7,6 @@ const crypto = require("crypto");
 
 const app = express();
 
-
-// ========================================
-// ✅ CORS COMPLETO
-// ========================================
 app.use(cors({
   origin: "*",
   methods: ["GET", "POST", "OPTIONS"],
@@ -21,27 +17,15 @@ app.options(/.*/, cors());
 
 app.use(express.json());
 
-
-// ========================================
-// ✅ VARIÁVEIS
-// ========================================
 const pagamentos = {};
 const icEnviado = {};
 
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
 
-
-// ========================================
-// ❤️ HEALTH
-// ========================================
 app.get("/health", (req, res) => {
   res.status(200).send("OK");
 });
 
-
-// ========================================
-// 💰 PIX
-// ========================================
 app.post("/criar-pagamento", async (req, res) => {
 
   const {
@@ -70,9 +54,6 @@ app.post("/criar-pagamento", async (req, res) => {
 
     console.log("📩 EMAIL PIX:", emailFinal);
 
-    // ========================================
-    // 🔥 MERCADO PAGO PIX
-    // ========================================
     const response = await axios.post(
       "https://api.mercadopago.com/v1/payments",
       {
@@ -104,17 +85,11 @@ app.post("/criar-pagamento", async (req, res) => {
 
     console.log("✅ PIX CRIADO");
 
-    // ========================================
-    // ✅ SALVA TOKEN IMEDIATAMENTE
-    // ========================================
     pagamentos[response.data.id] = {
       status: "pending",
       mp_access_token: token
     };
 
-    // ========================================
-    // 💾 SALVAR NO SUPABASE
-    // ========================================
     await axios.post(
       "https://frjoahehjmgsfojkyeej.supabase.co/functions/v1/save-payment",
       {
@@ -140,9 +115,6 @@ app.post("/criar-pagamento", async (req, res) => {
       response.data.point_of_interaction
         .transaction_data;
 
-    // ========================================
-    // 🔥 FACEBOOK IC
-    // ========================================
     if (pixel_id && pixel_token) {
 
       const chaveIC =
@@ -199,9 +171,6 @@ app.post("/criar-pagamento", async (req, res) => {
       }
     }
 
-    // ========================================
-    // ✅ RESPOSTA PIX
-    // ========================================
     res.json({
       pix_code: pix.qr_code,
       qr_code: pix.qr_code_base64,
@@ -222,10 +191,6 @@ app.post("/criar-pagamento", async (req, res) => {
   }
 });
 
-
-// ========================================
-// 💳 CARTÃO
-// ========================================
 app.post("/pagar-cartao", async (req, res) => {
 
   const {
@@ -248,9 +213,6 @@ app.post("/pagar-cartao", async (req, res) => {
       });
     }
 
-    // ========================================
-    // 🔥 FACEBOOK IC CARTÃO
-    // ========================================
     if (pixel_id && pixel_token) {
 
       const chaveIC =
@@ -297,9 +259,6 @@ app.post("/pagar-cartao", async (req, res) => {
       }
     }
 
-    // ========================================
-    // 💳 MERCADO PAGO CARTÃO
-    // ========================================
     const response = await axios.post(
       "https://api.mercadopago.com/v1/payments",
       {
@@ -357,10 +316,6 @@ app.post("/pagar-cartao", async (req, res) => {
   }
 });
 
-
-// ========================================
-// 🚀 STATUS
-// ========================================
 app.get("/status/:id", async (req, res) => {
 
   const { id } = req.params;
@@ -402,10 +357,6 @@ app.get("/status/:id", async (req, res) => {
   }
 });
 
-
-// ========================================
-// 🔔 WEBHOOK
-// ========================================
 app.post("/webhook", async (req, res) => {
 
   try {
@@ -418,8 +369,19 @@ app.post("/webhook", async (req, res) => {
 
     console.log("🔔 WEBHOOK:", paymentId);
 
+    const firstResponse = await axios.get(
+      `https://api.mercadopago.com/v1/payments/${paymentId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${ACCESS_TOKEN}`
+        }
+      }
+    );
+
+    const paymentBase = firstResponse.data;
+
     const tokenMP =
-      pagamentos[paymentId]?.mp_access_token;
+      paymentBase.metadata?.mp_access_token;
 
     if (!tokenMP) {
       console.log("❌ TOKEN MP NÃO ENCONTRADO");
@@ -445,9 +407,6 @@ app.post("/webhook", async (req, res) => {
       mp_access_token: tokenMP
     };
 
-    // ========================================
-    // 💾 UPDATE SUPABASE
-    // ========================================
     await axios.post(
       "https://frjoahehjmgsfojkyeej.supabase.co/functions/v1/save-payment",
       {
@@ -469,9 +428,6 @@ app.post("/webhook", async (req, res) => {
 
     console.log("💾 STATUS ATUALIZADO NO SUPABASE");
 
-    // ========================================
-    // 🔥 FACEBOOK PURCHASE
-    // ========================================
     const pixel_id =
       payment.metadata?.pixel_id;
 
@@ -547,10 +503,6 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-
-// ========================================
-// 🚀 START SERVER
-// ========================================
 const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, "0.0.0.0", () => {
