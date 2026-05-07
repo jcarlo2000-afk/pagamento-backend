@@ -134,50 +134,52 @@ app.post("/criar-pagamento", async (req, res) => {
 
         icEnviado[chaveIC] = true;
 
-        const emailHash = crypto
-          .createHash("sha256")
-          .update(emailFinal.trim().toLowerCase())
-          .digest("hex");
+        try {
 
-        axios.post(
-          `https://graph.facebook.com/v17.0/${pixel_id}/events`,
-          {
-            data: [
-              {
-                event_name: "InitiateCheckout",
+          const emailHash = crypto
+            .createHash("sha256")
+            .update(emailFinal.trim().toLowerCase())
+            .digest("hex");
 
-                event_time:
-                  Math.floor(Date.now() / 1000),
+          await axios.post(
+            `https://graph.facebook.com/v17.0/${pixel_id}/events`,
+            {
+              data: [
+                {
+                  event_name: "InitiateCheckout",
 
-                action_source: "website",
+                  event_time:
+                    Math.floor(Date.now() / 1000),
 
-                user_data: {
-                  em: [emailHash]
+                  action_source: "website",
+
+                  user_data: {
+                    em: [emailHash]
+                  },
+
+                  custom_data: {
+                    currency: "BRL",
+                    value: Number(valor),
+                  },
                 },
-
-                custom_data: {
-                  currency: "BRL",
-                  value: Number(valor),
-                },
-              },
-            ],
-          },
-          {
-            params: {
-              access_token: pixel_token,
+              ],
             },
-          }
-        )
-        .then(() => {
+            {
+              params: {
+                access_token: pixel_token,
+              },
+            }
+          );
+
           console.log("🔥 IC EVENT ENVIADO");
-        })
-        .catch((err) => {
+
+        } catch (err) {
+
           console.log(
             "⚠️ ERRO FACEBOOK:",
             err.response?.data || err.message
           );
-        });
-
+        }
       }
     }
 
@@ -223,7 +225,11 @@ app.post("/pagar-cartao", async (req, res) => {
       });
     }
 
-    if (pixel_id && pixel_token) {
+    if (
+      pixel_id &&
+      pixel_token &&
+      email
+    ) {
 
       const chaveIC =
         `${email}_${pixel_id}`;
@@ -232,40 +238,52 @@ app.post("/pagar-cartao", async (req, res) => {
 
         icEnviado[chaveIC] = true;
 
-        const emailHash = crypto
-          .createHash("sha256")
-          .update(email.trim().toLowerCase())
-          .digest("hex");
+        try {
 
-        axios.post(
-          `https://graph.facebook.com/v17.0/${pixel_id}/events`,
-          {
-            data: [
-              {
-                event_name: "InitiateCheckout",
+          const emailHash = crypto
+            .createHash("sha256")
+            .update(email.trim().toLowerCase())
+            .digest("hex");
 
-                event_time:
-                  Math.floor(Date.now() / 1000),
+          await axios.post(
+            `https://graph.facebook.com/v17.0/${pixel_id}/events`,
+            {
+              data: [
+                {
+                  event_name: "InitiateCheckout",
 
-                action_source: "website",
+                  event_time:
+                    Math.floor(Date.now() / 1000),
 
-                user_data: {
-                  em: [emailHash]
+                  action_source: "website",
+
+                  user_data: {
+                    em: [emailHash]
+                  },
+
+                  custom_data: {
+                    currency: "BRL",
+                    value: Number(valor),
+                  },
                 },
-
-                custom_data: {
-                  currency: "BRL",
-                  value: Number(valor),
-                },
-              },
-            ],
-          },
-          {
-            params: {
-              access_token: pixel_token,
+              ],
             },
-          }
-        );
+            {
+              params: {
+                access_token: pixel_token,
+              },
+            }
+          );
+
+          console.log("🔥 IC CARTÃO ENVIADO");
+
+        } catch (err) {
+
+          console.log(
+            "⚠️ ERRO IC CARTÃO:",
+            err.response?.data || err.message
+          );
+        }
       }
     }
 
@@ -406,9 +424,6 @@ app.post("/webhook", async (req, res) => {
       mp_access_token: tokenMP
     };
 
-    // ========================================
-    // 🔥 NÃO ATUALIZA PENDING
-    // ========================================
     if (payment.status === "approved") {
 
       try {
